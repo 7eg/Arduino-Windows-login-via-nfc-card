@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NFC Login Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 24px; }
+
+        h1 { font-size: 1.5rem; margin-bottom: 20px; color: #7dd3fc; letter-spacing: 0.05em; }
+
+        .stats { display: flex; gap: 16px; margin-bottom: 24px; }
+        .stat-card {
+            flex: 1; background: #1e293b; border-radius: 10px; padding: 16px 20px;
+            border-left: 4px solid #334155;
+        }
+        .stat-card.total  { border-color: #7dd3fc; }
+        .stat-card.ok     { border-color: #4ade80; }
+        .stat-card.denied { border-color: #f87171; }
+        .stat-card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; }
+        .stat-card .value { font-size: 2rem; font-weight: 700; margin-top: 4px; }
+        .stat-card.total  .value { color: #7dd3fc; }
+        .stat-card.ok     .value { color: #4ade80; }
+        .stat-card.denied .value { color: #f87171; }
+
+        .card { background: #1e293b; border-radius: 10px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #0f172a; color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; padding: 12px 16px; text-align: left; }
+        td { padding: 12px 16px; border-bottom: 1px solid #0f172a; font-size: 0.9rem; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #263248; }
+
+        .badge {
+            display: inline-block; padding: 3px 10px; border-radius: 999px;
+            font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em;
+        }
+        .badge.granted { background: #14532d; color: #4ade80; }
+        .badge.denied  { background: #450a0a; color: #f87171; }
+
+        code { background: #0f172a; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: #93c5fd; }
+
+        .live-dot {
+            display: inline-block; width: 8px; height: 8px; background: #4ade80;
+            border-radius: 50%; margin-right: 6px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .live-label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <h1>NFC Login Dashboard</h1>
+
+    <div class="stats">
+        <div class="stat-card total">
+            <div class="label">Total Scans</div>
+            <div class="value" id="statTotal">—</div>
+        </div>
+        <div class="stat-card ok">
+            <div class="label">Access Granted</div>
+            <div class="value" id="statGranted">—</div>
+        </div>
+        <div class="stat-card denied">
+            <div class="label">Access Denied</div>
+            <div class="value" id="statDenied">—</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="padding: 16px 16px 0;">
+            <span class="live-dot"></span>
+            <span class="live-label">Live — refreshes every 3 seconds</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Card UID</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="logTable"><tr><td colspan="5" style="color:#475569;text-align:center">Waiting for scans...</td></tr></tbody>
+        </table>
+    </div>
+
+    <script>
+        async function refresh() {
+            const [logsRes, statsRes] = await Promise.all([
+                fetch('/api/logs'),
+                fetch('/api/stats'),
+            ]);
+
+            const logs  = await logsRes.json();
+            const stats = await statsRes.json();
+
+            document.getElementById('statTotal').textContent   = stats.total   ?? 0;
+            document.getElementById('statGranted').textContent = stats.granted ?? 0;
+            document.getElementById('statDenied').textContent  = stats.denied  ?? 0;
+
+            const table = document.getElementById('logTable');
+            if (!logs.length) return;
+
+            table.innerHTML = logs.map((log, i) => {
+                const status = log.status ?? '';
+                const cls    = status.toLowerCase();
+                const time   = new Date(log.time + 'Z').toLocaleString();
+                return `
+                    <tr>
+                        <td style="color:#475569">${log.id}</td>
+                        <td>${time}</td>
+                        <td>${log.username ?? 'Unknown'}</td>
+                        <td><code>${log.uid}</code></td>
+                        <td><span class="badge ${cls}">${status}</span></td>
+                    </tr>`;
+            }).join('');
+        }
+
+        refresh();
+        setInterval(refresh, 3000);
+    </script>
+</body>
+</html>
